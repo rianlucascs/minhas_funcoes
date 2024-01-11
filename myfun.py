@@ -1,5 +1,6 @@
 
 """
+# S1RT6
 28/12/23
 https://www.linkedin.com/in/rian-lucas
 """
@@ -11,6 +12,7 @@ from time import sleep
 from tkinter import filedialog
 from pandas import read_csv, read_excel
 from platform import system, version, platform
+import json
 
 def sistema_operacional():
     """Retorna o so."""
@@ -36,6 +38,8 @@ def caminho_raiz(caminho=[]):
             _str_caminho += barra
     return _str_caminho
     
+# print(caminho_raiz(['logs']))
+
 def existe(caminho):
     if path.exists(caminho):
         return True
@@ -54,9 +58,10 @@ def escrita(caminho, mensagem, atualizar=None, pular_linha=False, pular_escrita=
             arquivo.write(mensagem)
     return None
 
-def leitura(caminho, tipo='read | readlines'):
+def leitura(caminho, tipo):
     """Retorna a informacao do arquivo."""
-    tipos = {'read': lambda arquivo: arquivo.read(), 'readlines': lambda arquivo: arquivo.readlines()}
+    tipos = {'read': lambda arquivo: arquivo.read(), 'readlines': lambda arquivo: arquivo.readlines(),
+             'json': lambda arquivo: json.load(arquivo)}
     with open(caminho, 'r', encoding=sistema_parametros()[1]) as arquivo:
         if tipo in tipos:
             return tipos[tipo](arquivo)
@@ -106,7 +111,7 @@ def terminal_exec_dinamico(caminho_loc_py, caminho_loc_bat=None, caminho_loc_sh=
             escrita(local_background, 'Set WshShell = CreateObject("WScript.shell")', atualizar, True, pular_escrita)
             escrita(local_background, f'WshShell.Run "{caminho_loc_bat}", 0', False, False, pular_escrita)
         elif so == 'mac':
-            raise ValueError('background mac não adicionado') from None
+            raise ValueError('background mac nao adicionado') from None
     if executar_em_seguida:
         if so == 'windows':
             if local_background != None:
@@ -138,17 +143,28 @@ def terminal_exec_dinamico(caminho_loc_py, caminho_loc_bat=None, caminho_loc_sh=
 #                            local_log_execucao=caminho_raiz(['log_teste.txt']), 
 #                            local_background=caminho_raiz(['background.vbs']))
 
-def leitura_dados(caminho=None, caixa_de_escolha=False, _sep=';'):
+def atualiza_caminho_barra(caminho):
+    if sistema_operacional() == 'windows':
+        return caminho.replace(sep, sep+sep)
+    return caminho
+
+def leitura_dados(caminho=None, caixa_de_escolha=False, _sep=';', log_caminho=None, fillna=None):
     """Retorna o dataframe do arquivo .xlsx ou .csv"""
+    # log_caminho informar o caminho onde vai ficar o registro do caminho selecionado ou escolhido
     if caixa_de_escolha:
         caminho = filedialog.askopenfilename()
+    caminho = atualiza_caminho_barra(caminho)
     if not caixa_de_escolha and caminho is None:
         raise TypeError('Não informou o caminho')
     tup_tipo = {'xlsx': lambda caminho: read_excel(caminho),
                     'csv': lambda caminho: read_csv(caminho, encoding=sistema_parametros()[1], sep=_sep)}
     tipo_arquivo = caminho.split('.')[-1]
     if tipo_arquivo in tup_tipo:
-        return tup_tipo[tipo_arquivo](caminho)
+        if log_caminho != None:
+            escrita(atualiza_caminho_barra(log_caminho), caminho, True)
+        if fillna != None:
+            df = tup_tipo[tipo_arquivo](caminho).fillna(fillna)
+        return df
     else:
         raise ValueError('Tipo arquivo diferente do esperado') from None
 
@@ -165,7 +181,7 @@ def maquina_local(caminho):
         return True
     return None
 
-def remover_caracteries(string, letras=True, caracteries=False, numeros=False, novo_valor='', excecao=None):
+def remover_caracteries(string, letras=True, caracteries=False, numeros=False, novo_valor='', excecao='None'):
     # novo_valor e o que sera subistituido caso tenha o caracteries que sera removido
     # execao e o mesmo contendo sera permitido
     if type(string) != str:
