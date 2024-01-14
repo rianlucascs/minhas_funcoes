@@ -13,6 +13,8 @@ from tkinter import filedialog
 from pandas import read_csv, read_excel
 from platform import system, version, platform
 import json
+from difflib import SequenceMatcher
+from fuzzywuzzy import fuzz
 
 def sistema_operacional():
     """Retorna o so."""
@@ -212,7 +214,15 @@ def remover_caracteries(string, letras=True, caracteries=False, numeros=False, n
 
 # print(remover_caracteries('avcsdefââasdasd & ', letras=True, caracteries=True, excecao='&'))
 
-
+def calcular_semelhanca(string1, string2, tipo):
+    
+    # semelhança
+    if tipo == 'SequenceMatcher':
+        return SequenceMatcher(None, string1, string2).ratio()
+    
+    # pontuação de similaridade
+    elif tipo == 'fuzzywuzzy':
+        return fuzz.ratio(string1, string2)
 
 
 
