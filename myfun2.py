@@ -195,8 +195,8 @@ def update_separator_path(_path):
         case 'windows':
             updated_path = _path.replace(_separator[0], _separator[1])
             updated_path = _path.replace(_separator[0]+_separator[1], _separator[1])
-            updated_path = _path.replace(_separator[1]*2, _separator[1])
-            updated_path = _path.replace(_separator[2]*2 + _separator[0], _separator[1])
+            updated_path = _path.replace((_separator[1]*2), _separator[1])
+            updated_path = _path.replace((_separator[1]*2) + _separator[0], _separator[1])
             return updated_path
         case 'mac':
             raise ValueError(f'*Erro {get_funcion_name()}')
@@ -221,6 +221,7 @@ def read_table_data(_path=None, path_popup=False, _sep=';', register_path_popup_
         return df_data
     else:
         raise TypeError(f'*Erro {get_funcion_name()}')
+
 
 def remove_specific_characters(
         string,
