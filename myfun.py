@@ -5,7 +5,7 @@
 https://www.linkedin.com/in/rian-lucas
 """
 
-from os import getcwd, remove, path, sep, name
+from os import getcwd, remove, mkdir, path, sep, name
 from datetime import datetime
 from subprocess import Popen, run
 from time import sleep
@@ -14,7 +14,7 @@ from pandas import read_csv, read_excel
 from platform import system, version, platform
 import json
 from difflib import SequenceMatcher
-from fuzzywuzzy import fuzz
+
 
 def sistema_operacional():
     """Retorna o so."""
@@ -22,16 +22,35 @@ def sistema_operacional():
     if name in sistemas:
         return sistemas[name]
     if name not in sistemas.keys():
-        raise ValueError('Sistema operacional diferente do esperado') from None
+        raise ValueError('Sistema operacional diferente do esperado')
 
 def sistema_parametros():
     """Retorna o caminho ate a pasta atual, encoding de arquivos e barra do so."""
+    if len(sep) == 1:
+        _sep = sep
+        __sep = sep + sep
+    if len(sep) == 2:
+        _sep = sep[0]
+        __sep = sep + sep
     if sistema_operacional() == 'windows':
-        return getcwd().replace('/', sep) + sep, 'UTF-8', sep
-    elif sistema_operacional == 'mac':
+        return getcwd().replace(_sep, __sep) + __sep, 'UTF-8', __sep
+    elif sistema_operacional() == 'mac':
         return getcwd() + '/', 'ISO-8859-15', '/'
 
-def caminho_raiz(caminho=[]):
+def get_parent_directory_path(levels_back=1):
+    current_path = getcwd()
+    parent_path = current_path
+    for _ in range(levels_back):
+        parent_path = path.dirname(parent_path)
+    return parent_path
+
+def encoding_sistema():
+    if sistema_operacional() == 'windows':
+        return 'UTF-8'
+    if sistema_operacional() == 'mac':
+        return 'ISO-8859-15'
+
+def path_raiz(caminho=[]):
     """Retorna o caminho ate a pasta atual mais o arquivo ou pasta informado."""
     _str_caminho, _, barra = sistema_parametros()
     for i, elementos in enumerate(caminho):
@@ -67,6 +86,13 @@ def leitura(caminho, tipo):
     with open(caminho, 'r', encoding=sistema_parametros()[1]) as arquivo:
         if tipo in tipos:
             return tipos[tipo](arquivo)
+
+def leitura_simples(caminho, tipo):
+    tipos = {'read': lambda arquivo: arquivo.read(), 'readlines': lambda arquivo: arquivo.readlines()}
+    with open(caminho, 'r', encoding_sistema()) as arquivo:
+        if tipo in tipos:
+            return tipos[tipo](arquivo)
+        
         
 def informacao_existe(caminho, info):
     """Verifica se a informacao esta no arquivo."""
@@ -77,7 +103,7 @@ def informacao_existe(caminho, info):
                 return True
     return False
 
-def log(caminho, mensagem, tipo_log='INFO', atualizar=False, pular_linha=True, pular_escrita=False):
+def log_my(caminho, mensagem, tipo_log='INFO', atualizar=False, pular_linha=True, pular_escrita=False):
     """Escreve em arquivo de texto no formato log."""
     tempo = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     tup_log = {'INFO': f'[{tempo}] [INFO]', 'AVISO': f'[{tempo}] [AVISO]', 'ERRO': f'[{tempo}] [ERRO]'}
@@ -85,6 +111,13 @@ def log(caminho, mensagem, tipo_log='INFO', atualizar=False, pular_linha=True, p
         escrita(caminho, f'{tup_log[tipo_log]} {mensagem}', atualizar, pular_linha, pular_escrita)
     else:
         raise TypeError('tipo_log tipo diferente do esperado')
+    return None
+
+from logging import basicConfig, getLogger, DEBUG
+def log(caminho, mensagem):
+    basicConfig(filename=caminho, level=DEBUG)
+    log = getLogger()
+    log.error(f'{mensagem}')
     return None
 
 def terminal_exec(caminho, tipo_exec):
@@ -100,7 +133,7 @@ def terminal_exec(caminho, tipo_exec):
 def terminal_exec_dinamico(caminho_loc_py, caminho_loc_bat=None, caminho_loc_sh=None, atualizar=False, pular_escrita=False,
                    executar_em_seguida=False, excluir_em_seguida=False, local_log_execucao=None,
                    local_background=None):
-    """Se 'so' for mac então informar caminho_loc_sh e local_background deve ser None"""
+    """Se 'so' for mac então informar caminho_loc_sh e local_background deve ser None."""
     so = sistema_operacional()
     if so == 'windows':
         escrita(caminho_loc_bat, f'cd {caminho_loc_py.replace(caminho_loc_py.split(sistema_parametros()[2])[-1], "")[:-1]}', atualizar, True, pular_escrita)
@@ -170,18 +203,6 @@ def leitura_dados(caminho=None, caixa_de_escolha=False, _sep=';', log_caminho=No
     else:
         raise ValueError('Tipo arquivo diferente do esperado') from None
 
-def maquina_local(caminho):
-    """Cria arquivo .txt com as informacoes do sistema operacional, se criado, entao verificacao se mudou."""
-    mensagem = f'{system()}\n{platform()}\n{version()}\n'
-    if existe(caminho) is False:
-        escrita(caminho, mensagem, False)
-    else:
-        arquivo = leitura(caminho, 'readlines')
-        for linha in arquivo:
-            if not linha[:-1] in [system(), platform(), version()]:
-                return False
-        return True
-    return None
 
 def remover_caracteries(string, letras=True, caracteries=False, numeros=False, novo_valor='', excecao='None'):
     # novo_valor e o que sera subistituido caso tenha o caracteries que sera removido
@@ -214,16 +235,68 @@ def remover_caracteries(string, letras=True, caracteries=False, numeros=False, n
 
 # print(remover_caracteries('avcsdefââasdasd & ', letras=True, caracteries=True, excecao='&'))
 
-def calcular_semelhanca(string1, string2, tipo):
-    
-    # semelhança
-    if tipo == 'SequenceMatcher':
-        return SequenceMatcher(None, string1, string2).ratio()
-    
-    # pontuação de similaridade
-    elif tipo == 'fuzzywuzzy':
-        return fuzz.ratio(string1, string2)
+def calcular_semelhanca(string1, string2):
+    return SequenceMatcher(None, str(string1).lower(), str(string2).lower()).ratio()
 
+def registrar_info_sistema(caminho):
+    """
+    Cria um arquivo .txt contendo as informacoes do sistema operacional e, 
+    caso ja exista, realiza uma verificacao de alteracoes.
+    
+    Return:
+        bool: True = nao mudou
+        bool: False  = mudou
+
+    Obs:
+        Verificar essa função em outro sistema operacional.
+    """
+    mensagem = f'{system()}\n{platform()}\n{version()}\n'
+    if existe(caminho) is False:
+        escrita(caminho, mensagem, False)
+    else:
+        arquivo = leitura(caminho, 'readlines')
+        for linha in arquivo:
+            if not linha[:-1] in [system(), platform(), version()]:
+                return True
+        remove(caminho)
+        sleep(0.1)
+        registrar_info_sistema(caminho)
+        return False
+    return None
+
+def estabelecer_caminho_inteligente_script(caminho_arquivos_temporarios ):
+    """
+    Cria arquivo txt com o caminho da maquina ate o arquivo.
+
+    Args:
+        diretorio_temporario_path: caminho onde os arquivos temporários são 
+        armazenados por este sistema.
+    
+    Obs:
+        core_path: O conteudo sera sempre atualizado ao iniciar o algoritmo, 
+        pois o cliente pode mover o arquivo para outro diretorio.
+    """
+
+    if '.' in caminho_arquivos_temporarios:
+        raise TypeError('Nao informar o nome do arquivo que sera escrito.')
+    
+    bar = sistema_parametros()[2]
+    caminho = caminho_arquivos_temporarios + bar + 'core_path'
+    if existe(caminho) is False:
+        mkdir(caminho_arquivos_temporarios + bar + 'core_path')
+    sleep(0.1)
+    if existe(caminho) is True:
+        caminho = caminho_arquivos_temporarios + bar + 'core_path' + bar
+        info_syst = registrar_info_sistema(caminho + 'so.txt')
+        if info_syst == None:
+            estabelecer_caminho_inteligente_script(caminho_arquivos_temporarios)
+        if info_syst == False:
+            escrita(caminho + 'core_path.txt', path_raiz([]), True)
+    return None
+
+# estabelecer_path_inteligente_script(path_raiz(['temp']))
+
+# print(path_raiz([]))
 
 
     
